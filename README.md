@@ -1,6 +1,6 @@
 # AWS DevOps Practical Assessment
 
-**Author:** Ayush
+**Author:** Ayush  
 **Region:** ap-south-1 (Mumbai)
 **Tools:** Terraform, GitHub Actions, Docker, Kubernetes (EKS), AWS
 
