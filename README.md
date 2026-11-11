@@ -22,22 +22,41 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 1 Auto Scaling Group that we define for the web servers. The Kubernetes worker nodes also sit in an Auto Scaling Group that AWS manages automatically, so there are 2 in total, but only 1 is written in this project.
 - 1 Launch Template that tells the Auto Scaling Group how to build each web server.
 
-[!pic](Screenshots/ec2_instances.png)
+![pic](Screenshots/ec2_instances.png)
+
+-----------------------------------
+![pic](Screenshots/ASG.png)
 
 **Load balancing**
 - 1 Application Load Balancer that shares web traffic across the web servers.
 - 1 Target Group that checks whether each server is healthy.
 - 1 extra load balancer that Kubernetes creates for the app (it appears after the pipeline deploys).
 
+![pic](Screenshots/AWS_Lb.png)
+
+-----------------------------------
+![pic](Screenshots/AWS_TG.png)
+
 **Containers and CI/CD**
 - 1 ECR repository that stores the Docker images.
 - 1 EKS (Kubernetes) cluster running 2 copies of the app.
 - 1 IAM role and OIDC connection that lets GitHub Actions deploy to AWS without storing any access keys.
 
+ ![pic](Screenshots/CI_CD_success.png)
+ 
+ -----------------------------------
+ ![pic](Screenshots/EKS_Cluster_active.png)
+
+ -----------------------------------
+ ![pic](Screenshots/ECR_image.png)
+
+
 **Static website**
 - 1 private S3 bucket holding the website files, with all public access blocked.
 - 1 CloudFront distribution that serves the website over HTTPS.
 - 1 Origin Access Control and bucket policy so that only CloudFront can read the bucket.
+
+![pic](Screenshots/s3_Direct_access_blocked.png)
 
 **Security and access**
 - 2 security groups: one for the load balancer (open to the internet on the web port) and one for the servers (only accept traffic from the load balancer).
