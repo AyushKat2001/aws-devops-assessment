@@ -1,75 +1,71 @@
-# AWS DevOps Practical Assessment (Terraform + GitHub Actions)
+# AWS DevOps Practical Assessment
 
-| # | Task | Where |
-|---|------|-------|
-| 1 | CI/CD: tests → Docker build → ECR → Kubernetes (EKS) | `.github/workflows/ci-cd.yml`, `app/`, `k8s/`, infra in `terraform/cicd.tf` |
-| 2 | CloudFront in front of a private S3 site + cache invalidation | `terraform/cloudfront_s3.tf`, `site/` |
-| 3 | Launch Template + ASG + ALB + Target Group, CPU > 70% scaling, unhealthy replacement | `terraform/asg_alb.tf`, `demos/` |
+**Author:** Ayush
+**Region:** ap-south-1 (Mumbai)
+**Tools:** Terraform, GitHub Actions, Docker, Kubernetes (EKS), AWS
 
-Region: `ap-south-1`. All AWS infrastructure is Terraform; the app pipeline is GitHub Actions. Plain-English explanation: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+## What this project does
 
-## Prerequisites
-`terraform` (>= 1.5), `aws` CLI v2 (`aws configure`), `kubectl`, `git`, `gh` (`gh auth login`).
+This project builds a small but complete setup on AWS that covers three tasks:
 
-## Deploy
+1. **CI/CD pipeline:** every push to the `main` branch automatically tests the app, builds a Docker image, stores it in AWS, and deploys it to a Kubernetes cluster.
+2. **Static website with CloudFront:** a website stored in a private S3 bucket and delivered to users through CloudFront. Nobody can open the bucket directly.
+3. **Auto-scaling web servers:** web servers behind a load balancer that add more servers when they get busy and replace any server that stops working.
 
-```bash
-# 1. Create everything on AWS (~20 min, EKS is the slow part)
-cd terraform
-terraform init
-terraform plan
-terraform apply
+All AWS infrastructure is created with Terraform. The application is deployed by GitHub Actions.
 
-# 2. Create the GitHub repo and give it the AWS role (no access keys)
-cd ..
-git init -b main
-gh repo create ayush272001/aws-devops-assessment --public --source=. --remote=origin
-gh secret set AWS_ROLE_ARN --body "$(terraform -chdir=terraform output -raw github_role_arn)"
+## What gets deployed
 
-# 3. Push -> triggers the pipeline (test, build, push to ECR, deploy to EKS)
-git add . && git commit -m "AWS DevOps assessment: Terraform + CI/CD" && git push -u origin main
-gh run watch
-```
+**Compute**
+- 2 EC2 web servers (t3.micro, running nginx) managed by an Auto Scaling Group. They can grow up to 4 when CPU goes above 70%.
+- 2 EC2 worker nodes (t3.small) that run the Kubernetes cluster.
+- 1 Auto Scaling Group that we define for the web servers. The Kubernetes worker nodes also sit in an Auto Scaling Group that AWS manages automatically, so there are 2 in total, but only 1 is written in this project.
+- 1 Launch Template that tells the Auto Scaling Group how to build each web server.
 
-## Verify and demo
+**Load balancing**
+- 1 Application Load Balancer that shares web traffic across the web servers.
+- 1 Target Group that checks whether each server is healthy.
+- 1 extra load balancer that Kubernetes creates for the app (it appears after the pipeline deploys).
 
-**Task 1 - pipeline**
-```bash
-aws eks update-kubeconfig --name devops-assessment --region ap-south-1
-kubectl get pods,svc
-curl http://$(kubectl get svc devops-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/health
-aws ecr list-images --repository-name devops-assessment-app
-```
+**Containers and CI/CD**
+- 1 ECR repository that stores the Docker images.
+- 1 EKS (Kubernetes) cluster running 2 copies of the app.
+- 1 IAM role and OIDC connection that lets GitHub Actions deploy to AWS without storing any access keys.
 
-**Task 2 - CloudFront**
-```bash
-./demos/verify-cloudfront.sh          # CloudFront 200, direct S3 403
-sed -i 's/v1/v2/' site/index.html
-terraform -chdir=terraform apply      # uploads new file AND invalidates the cache
-curl -s $(terraform -chdir=terraform output -raw cloudfront_url)/ | grep Version   # shows v2
-```
+**Static website**
+- 1 private S3 bucket holding the website files, with all public access blocked.
+- 1 CloudFront distribution that serves the website over HTTPS.
+- 1 Origin Access Control and bucket policy so that only CloudFront can read the bucket.
 
-**Task 3 - ASG + ALB**
-```bash
-terraform -chdir=terraform output alb_url     # open it, refresh: instance ID changes
-./demos/scale-out.sh                          # CPU > 70% -> ASG adds instances
-./demos/unhealthy-replacement.sh              # one instance breaks -> ASG replaces it
-```
+**Security and access**
+- 2 security groups: one for the load balancer (open to the internet on the web port) and one for the servers (only accept traffic from the load balancer).
+- 1 IAM role and instance profile for the web servers so they can be managed without SSH keys.
 
-## Evidence to capture
-Green GitHub Actions run, ECR image tagged with the commit SHA, `kubectl get pods,svc`; CloudFront 200 vs S3 403 and the invalidation; ASG/ALB/Target Group in the console, 70% scaling policy, scaling activity history (scale-out and replacement).
+## How it works
 
-## Destroy (stop charges)
-```bash
-aws eks update-kubeconfig --name devops-assessment --region ap-south-1
-kubectl delete -f k8s/ --ignore-not-found     # removes the load balancer Kubernetes created
-cd terraform && terraform destroy
-```
+**CI/CD**
+When code is pushed to GitHub, a pipeline runs. It first runs the tests. If they pass, it builds the Docker image, uploads it to ECR with the commit ID as its tag, and updates the app on the Kubernetes cluster. If the tests fail, nothing is deployed.
 
-## Design notes
-- **Terraform state is local** for simplicity; a team setup would use an S3 backend with locking.
-- **OIDC, not access keys:** the GitHub role can only be assumed from this repo's `main` branch.
-- **Images tagged with the git SHA:** each deploy is traceable; roll back with `kubectl rollout undo`.
-- **OAC + bucket policy:** S3 stays private; only this CloudFront distribution can read it.
-- **ASG health check type = ELB:** an app-level failure (not just a dead VM) triggers replacement.
-- **`desired_capacity` is ignored by Terraform** so it doesn't undo the autoscaler.
+**CloudFront and S3**
+Users visit the CloudFront address. CloudFront fetches the files from the private S3 bucket and keeps copies close to users. Trying to open the S3 address directly is denied. When the website files change, Terraform uploads them and clears CloudFront's cached copies so users see the new version.
+
+**Auto Scaling and load balancer**
+The load balancer sends each visitor to one of the web servers. Every few seconds it checks that each server is healthy. If a server stops responding, the Auto Scaling Group removes it and starts a new one. If average CPU use stays above 70%, the group adds more servers, and removes them again when it is quiet.
+
+## What the project proves
+
+- Infrastructure can be created and removed with code (Terraform).
+- Code changes are tested and deployed automatically (GitHub Actions).
+- The S3 bucket stays private and is only reachable through CloudFront.
+- The web servers scale out under load and heal themselves when one fails.
+
+## Folder guide
+
+- **terraform:** all AWS infrastructure
+- **app:** the small web application and its Docker file
+- **k8s:** Kubernetes files used by the pipeline
+- **.github/workflows:** the CI/CD pipeline
+- **site:** the static website files
+- **demos:** helper scripts to show scaling and server replacement
+- **docs:** plain-English explanation of the project
+
