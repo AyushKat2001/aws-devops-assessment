@@ -22,9 +22,11 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 1 Auto Scaling Group that we define for the web servers. The Kubernetes worker nodes also sit in an Auto Scaling Group that AWS manages automatically, so there are 2 in total, but only 1 is written in this project.
 - 1 Launch Template that tells the Auto Scaling Group how to build each web server.
 
+-- EC2 Instances Launched
 ![pic](Screenshots/ec2_instances.png)
 
 -----------------------------------
+-- Auto Scaling Groups
 ![pic](Screenshots/ASG.png)
 
 **Load balancing**
@@ -32,9 +34,11 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 1 Target Group that checks whether each server is healthy.
 - 1 extra load balancer that Kubernetes creates for the app (it appears after the pipeline deploys).
 
+-- Application Loadbalancer
 ![pic](Screenshots/AWS_Lb.png)
 
 -----------------------------------
+-- Target Groups for the ALB
 ![pic](Screenshots/AWS_TG.png)
 
 **Containers and CI/CD**
@@ -42,12 +46,15 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 1 EKS (Kubernetes) cluster running 2 copies of the app.
 - 1 IAM role and OIDC connection that lets GitHub Actions deploy to AWS without storing any access keys.
 
+-- CI/CD Pipeline Success and All tests report
  ![pic](Screenshots/CI_CD_success.png)
  
  -----------------------------------
+ -- EKS Cluster Active with Pods running
  ![pic](Screenshots/EKS_Cluster_active.png)
 
  -----------------------------------
+ -- Image Pushed to ECR
  ![pic](Screenshots/ECR_image.png)
 
 
@@ -56,6 +63,7 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 1 CloudFront distribution that serves the website over HTTPS.
 - 1 Origin Access Control and bucket policy so that only CloudFront can read the bucket.
 
+-- S3 Direct Access Blocked 
 ![pic](Screenshots/s3_Direct_access_blocked.png)
 
 **Security and access**
