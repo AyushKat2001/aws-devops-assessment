@@ -1,7 +1,7 @@
 # AWS DevOps Practical Assessment
 
 **Author:** Ayush  
-**Region:** ap-south-1 (Mumbai)
+**Region:** ap-south-1 (Mumbai)  
 **Tools:** Terraform, GitHub Actions, Docker, Kubernetes (EKS), AWS
 
 ## What this project does
@@ -21,6 +21,8 @@ All AWS infrastructure is created with Terraform. The application is deployed by
 - 2 EC2 worker nodes (t3.small) that run the Kubernetes cluster.
 - 1 Auto Scaling Group that we define for the web servers. The Kubernetes worker nodes also sit in an Auto Scaling Group that AWS manages automatically, so there are 2 in total, but only 1 is written in this project.
 - 1 Launch Template that tells the Auto Scaling Group how to build each web server.
+
+[!pic](Screenshots/ec2_instances.png)
 
 **Load balancing**
 - 1 Application Load Balancer that shares web traffic across the web servers.
