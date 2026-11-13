@@ -81,6 +81,11 @@ Users visit the CloudFront address. CloudFront fetches the files from the privat
 **Auto Scaling and load balancer**
 The load balancer sends each visitor to one of the web servers. Every few seconds it checks that each server is healthy. If a server stops responding, the Auto Scaling Group removes it and starts a new one. If average CPU use stays above 70%, the group adds more servers, and removes them again when it is quiet.
 
+Use :- 
+cd ..
+./demos/scale-out.sh
+watch -n 20 'aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names web-asg --query "AutoScalingGroups[0].[DesiredCapacity,length(Instances)]" --output text'
+
 ## What the project proves
 
 - Infrastructure can be created and removed with code (Terraform).
